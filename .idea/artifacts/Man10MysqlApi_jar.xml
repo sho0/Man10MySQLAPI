@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Man10MysqlApi:jar">
+    <output-path>$PROJECT_DIR$/../../Stronger Pro/spigot/plugins</output-path>
+    <root id="archive" name="Man10MysqlApi.jar">
+      <element id="module-output" name="Man10MysqlApi" />
+    </root>
+  </artifact>
+</component>

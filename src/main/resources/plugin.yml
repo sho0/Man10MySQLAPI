@@ -1,0 +1,8 @@
+name: Man10MySQLAPI
+version: ${project.version}
+main: red.man10.man10mysqlapi.Man10MysqlAPI
+authors: [takatronix, Sho0]
+description: Man10 MySQL API
+website: man10.red
+commands:
+ mysqlapi:
