@@ -33,7 +33,7 @@ public final class Man10MysqlAPI extends JavaPlugin {
             p.sendMessage("");
             p.sendMessage("§eAPI Made by §cSho0");
             p.sendMessage("§bTwitter https://twitter.com/Sho0_dev");
-            p.sendMessage("§dVersion V1.0");
+            p.sendMessage("§dVersion V1.2");
         }
         return true;
     }
