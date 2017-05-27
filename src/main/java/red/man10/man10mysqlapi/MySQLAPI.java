@@ -81,7 +81,12 @@ public class MySQLAPI {
             this.plugin.getLogger().info("[" + this.conName + "] Could not connect to the database.");
         }
 
-        this.MySQL.close(this.con);
+        this.MySQL = new MySQLFunc(this.HOST, this.DB, this.USER, this.PASS,this.PORT);
+        this.con = this.MySQL.open();
+        if(this.con == null){
+            Bukkit.getLogger().info("failed to open MYSQL");
+            return false;
+        }
         return Boolean.valueOf(this.connected);
     }
 
@@ -123,57 +128,47 @@ public class MySQLAPI {
     //      実行
     ////////////////////////////////
     public boolean execute(String query) {
-        this.MySQL = new MySQLFunc(this.HOST, this.DB, this.USER, this.PASS,this.PORT);
-        this.con = this.MySQL.open();
-        if(this.con == null){
-            Bukkit.getLogger().info("failed to open MYSQL");
-            return false;
-        }
-        boolean ret = true;
-        if (debugMode){
-            plugin.getLogger().info("query:" + query);
-        }
+        final boolean[] ret = {true};
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (debugMode){
+                    plugin.getLogger().info("query:" + query);
+                }
 
-        try {
-            this.st = this.con.createStatement();
-            this.st.execute(query);
-        } catch (SQLException var3) {
-            this.plugin.getLogger().info("[" + this.conName + "] Error executing statement: " +var3.getErrorCode() +":"+ var3.getLocalizedMessage());
-            this.plugin.getLogger().info(query);
-            ret = false;
+                try {
+                    st = con.createStatement();
+                    st.execute(query);
+                } catch (SQLException var3) {
+                    plugin.getLogger().info("[" + conName + "] Error executing statement: " +var3.getErrorCode() +":"+ var3.getLocalizedMessage());
+                    plugin.getLogger().info(query);
+                    ret[0] = false;
 
-        }
-
-        this.MySQL.close(this.con);
-        return ret;
+                }
+            }
+        }).start();
+        return ret[0];
     }
 
     ////////////////////////////////
     //      クエリ
     ////////////////////////////////
     public ResultSet query(String query) {
-        this.MySQL = new  MySQLFunc(this.HOST, this.DB, this.USER, this.PASS,this.PORT);
-        this.con = this.MySQL.open();
-        ResultSet rs = null;
-        if(this.con == null){
-            Bukkit.getLogger().info("failed to open MYSQL");
-            return rs;
-        }
-
-
-
-
-        if (debugMode){
-            plugin.getLogger().info("query:" + query);
-        }
-
-        try {
-            this.st = this.con.createStatement();
-            rs = this.st.executeQuery(query);
-        } catch (SQLException var4) {
-            this.plugin.getLogger().info("[" + this.conName + "] Error executing query: " + var4.getErrorCode());
-        }
-
-        return rs;
+        final ResultSet[] rs = {null};
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (debugMode){
+                    plugin.getLogger().info("query:" + query);
+                }
+                try {
+                    st = con.createStatement();
+                    rs[0] = st.executeQuery(query);
+                } catch (SQLException var4) {
+                    plugin.getLogger().info("[" + conName + "] Error executing query: " + var4.getErrorCode());
+                }
+            }
+        }).start();
+        return rs[0];
     }
 }
