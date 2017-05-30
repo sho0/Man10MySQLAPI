@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 
 /**
@@ -14,7 +15,7 @@ import java.util.logging.Level;
  */
 public class MySQLAPI {
 
-    public  Boolean debugMode = false;
+    public Boolean debugMode = false;
     private JavaPlugin plugin;
     private String HOST = null;
     private String DB = null;
@@ -36,9 +37,9 @@ public class MySQLAPI {
         this.connected = false;
         loadConfig();
 
-        this.connected = Connect(HOST, DB, USER, PASS,PORT);
+        this.connected = Connect(HOST, DB, USER, PASS, PORT);
 
-        if(!this.connected) {
+        if (!this.connected) {
             plugin.getLogger().info("Unable to establish a MySQL connection.");
         }
     }
@@ -46,7 +47,7 @@ public class MySQLAPI {
     /////////////////////////////////
     //       設定ファイル読み込み
     /////////////////////////////////
-    public void loadConfig(){
+    public void loadConfig() {
         plugin.getLogger().info("MYSQL Config loading");
         plugin.reloadConfig();
         HOST = plugin.getConfig().getString("mysql.host");
@@ -60,14 +61,14 @@ public class MySQLAPI {
     ////////////////////////////////
     //       接続
     ////////////////////////////////
-    public Boolean Connect(String host, String db, String user, String pass,String port) {
+    public Boolean Connect(String host, String db, String user, String pass, String port) {
         this.HOST = host;
         this.DB = db;
         this.USER = user;
         this.PASS = pass;
-        this.MySQL = new MySQLFunc(host, db, user, pass,port);
+        this.MySQL = new MySQLFunc(host, db, user, pass, port);
         this.con = this.MySQL.open();
-        if(this.con == null){
+        if (this.con == null) {
             Bukkit.getLogger().info("failed to open MYSQL");
             return false;
         }
@@ -81,12 +82,8 @@ public class MySQLAPI {
             this.plugin.getLogger().info("[" + this.conName + "] Could not connect to the database.");
         }
 
-        this.MySQL = new MySQLFunc(this.HOST, this.DB, this.USER, this.PASS,this.PORT);
+        this.MySQL = new MySQLFunc(this.HOST, this.DB, this.USER, this.PASS, this.PORT);
         this.con = this.MySQL.open();
-        if(this.con == null){
-            Bukkit.getLogger().info("failed to open MYSQL");
-            return false;
-        }
         return Boolean.valueOf(this.connected);
     }
 
@@ -98,7 +95,7 @@ public class MySQLAPI {
         ResultSet set = this.query(String.format("SELECT * FROM %s", new Object[]{table}));
 
         try {
-            while(set.next()) {
+            while (set.next()) {
                 ++count;
             }
         } catch (SQLException var5) {
@@ -107,6 +104,7 @@ public class MySQLAPI {
 
         return count;
     }
+
     ////////////////////////////////
     //     レコード数
     ////////////////////////////////
@@ -127,12 +125,20 @@ public class MySQLAPI {
     ////////////////////////////////
     //      実行
     ////////////////////////////////
+
+    public boolean result = true;
+
     public boolean execute(String query) {
-        final boolean[] ret = {true};
-        new Thread(new Runnable() {
+        FutureTask<Boolean> f = new FutureTask<Boolean>(new Callable<Boolean>() {
             @Override
-            public void run() {
-                if (debugMode){
+            public Boolean call() throws Exception {
+                MySQL = new MySQLFunc(HOST, DB, USER, PASS,PORT);
+                con = MySQL.open();
+                if (con == null) {
+                    Bukkit.getLogger().info("failed to open MYSQL");
+                    return false;
+                }
+                if (debugMode) {
                     plugin.getLogger().info("query:" + query);
                 }
 
@@ -140,35 +146,60 @@ public class MySQLAPI {
                     st = con.createStatement();
                     st.execute(query);
                 } catch (SQLException var3) {
-                    plugin.getLogger().info("[" + conName + "] Error executing statement: " +var3.getErrorCode() +":"+ var3.getLocalizedMessage());
+                    plugin.getLogger().info("[" + conName + "] Error executing statement: " + var3.getErrorCode() + ":" + var3.getLocalizedMessage());
                     plugin.getLogger().info(query);
-                    ret[0] = false;
-
+                    result = false;
                 }
+                MySQL.close(con);
+                return result;
             }
-        }).start();
-        return ret[0];
+        });
+
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        executor.execute(f);
+
+        try {
+            return f.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return true;
     }
 
     ////////////////////////////////
     //      クエリ
-    ////////////////////////////////
+    //////////////////////////////
+    //
+
+    ResultSet rs = null;
+
     public ResultSet query(String query) {
-        final ResultSet[] rs = {null};
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                if (debugMode){
-                    plugin.getLogger().info("query:" + query);
-                }
-                try {
-                    st = con.createStatement();
-                    rs[0] = st.executeQuery(query);
-                } catch (SQLException var4) {
-                    plugin.getLogger().info("[" + conName + "] Error executing query: " + var4.getErrorCode());
-                }
+        FutureTask<ResultSet> f = new FutureTask<>(() -> {
+            MySQL = new MySQLFunc(HOST, DB, USER, PASS, PORT);
+            con = MySQL.open();
+            if (debugMode) {
+                plugin.getLogger().info("query:" + query);
             }
-        }).start();
-        return rs[0];
+            try {
+                st = con.createStatement();
+                rs = st.executeQuery(query);
+            } catch (SQLException var4) {
+                plugin.getLogger().info("[" + conName + "] Error executing query: " + var4.getErrorCode());
+            }
+            MySQL.close(con);
+            return rs;
+        });
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        executor.execute(f);
+        try {
+            return f.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
