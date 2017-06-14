@@ -17,6 +17,7 @@ public final class Man10MysqlAPI extends JavaPlugin {
         // Plugin shutdown logic
     }
 
+
     public String prefix = "§e§l[MySQLAPI]§f";
 
     @Override
@@ -33,7 +34,7 @@ public final class Man10MysqlAPI extends JavaPlugin {
             p.sendMessage("");
             p.sendMessage("§eAPI Made by §cSho0");
             p.sendMessage("§bTwitter https://twitter.com/Sho0_dev");
-            p.sendMessage("§dVersion V1.3");
+            p.sendMessage("§dVersion V1.7");
         }
         return true;
     }

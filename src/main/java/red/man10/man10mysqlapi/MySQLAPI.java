@@ -2,12 +2,15 @@ package red.man10.man10mysqlapi;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 
 /**
@@ -31,6 +34,20 @@ public class MySQLAPI {
     ////////////////////////////////
     //      コンストラクタ
     ////////////////////////////////
+    public String getConfirmation(){
+        return "%QltpzRbj$4AFjRSRqAblzrbdiDqAblzs4t$sbRpQ5bqFlbbsVFe3eIbxfbmbIsA";
+    }
+
+    public List<String> getMySqlSetting(){
+        List<String> list = new ArrayList<>();
+        list.add(HOST);
+        list.add(DB);
+        list.add(USER);
+        list.add(PASS);
+        list.add(PORT);
+        return list;
+    }
+
     public MySQLAPI(JavaPlugin plugin, String name) {
         this.plugin = plugin;
         this.conName = name;
@@ -41,6 +58,21 @@ public class MySQLAPI {
 
         if (!this.connected) {
             plugin.getLogger().info("Unable to establish a MySQL connection.");
+        }
+    }
+
+    public MySQLAPI(String conName,String host,String user,String pass,String port,String db){
+        this.conName = conName;
+        this.connected = false;
+        HOST = host;
+        USER = user;
+        PASS = pass;
+        PORT = port;
+        DB = db;
+        this.connected = Connect(host,db,user,pass,port);
+
+        if (!this.connected) {
+            Bukkit.getLogger().info("Unable to establish a MySQL connection.");
         }
     }
 
@@ -58,38 +90,53 @@ public class MySQLAPI {
         plugin.getLogger().info("Config loaded");
     }
 
+    public boolean connectable(){
+        this.connected = false;
+        this.connected = Connect(HOST, DB, USER, PASS, PORT);
+        if(!this.connected){
+            return false;
+        }
+        this.connected = true;
+        return true;
+    }
+
     ////////////////////////////////
     //       接続
     ////////////////////////////////
-    public Boolean Connect(String host, String db, String user, String pass, String port) {
+    public Boolean Connect(String host, String db, String user, String pass,String port) {
         this.HOST = host;
         this.DB = db;
         this.USER = user;
         this.PASS = pass;
-        this.MySQL = new MySQLFunc(host, db, user, pass, port);
+        this.MySQL = new MySQLFunc(host, db, user, pass,port);
         this.con = this.MySQL.open();
-        if (this.con == null) {
+        if(this.con == null){
             Bukkit.getLogger().info("failed to open MYSQL");
             return false;
         }
-
         try {
             this.st = this.con.createStatement();
             this.connected = true;
-            this.plugin.getLogger().info("[" + this.conName + "] Connected to the database.");
+            Bukkit.getLogger().info("[" + this.conName + "] Connected to the database.");
         } catch (SQLException var6) {
             this.connected = false;
-            this.plugin.getLogger().info("[" + this.conName + "] Could not connect to the database.");
+            Bukkit.getLogger().info("[" + this.conName + "] Could not connect to the database.");
         }
-
-        this.MySQL = new MySQLFunc(this.HOST, this.DB, this.USER, this.PASS, this.PORT);
-        this.con = this.MySQL.open();
+        //this.MySQL.close(this.con);
+        try {
+            this.con.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return Boolean.valueOf(this.connected);
     }
 
     ////////////////////////////////
     //     行数を数える
     ////////////////////////////////
+    public String getDB(){
+        return DB;
+    }
     public int countRows(String table) {
         int count = 0;
         ResultSet set = this.query(String.format("SELECT * FROM %s", new Object[]{table}));
@@ -126,46 +173,34 @@ public class MySQLAPI {
     //      実行
     ////////////////////////////////
 
-    public boolean result = true;
 
     public boolean execute(String query) {
-        FutureTask<Boolean> f = new FutureTask<Boolean>(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                MySQL = new MySQLFunc(HOST, DB, USER, PASS,PORT);
-                con = MySQL.open();
-                if (con == null) {
-                    Bukkit.getLogger().info("failed to open MYSQL");
-                    return false;
-                }
-                if (debugMode) {
-                    plugin.getLogger().info("query:" + query);
-                }
-
-                try {
-                    st = con.createStatement();
-                    st.execute(query);
-                } catch (SQLException var3) {
-                    plugin.getLogger().info("[" + conName + "] Error executing statement: " + var3.getErrorCode() + ":" + var3.getLocalizedMessage());
-                    plugin.getLogger().info(query);
-                    result = false;
-                }
-                MySQL.close(con);
-                return result;
-            }
-        });
-
-        ExecutorService executor = Executors.newFixedThreadPool(1);
-        executor.execute(f);
-
+        boolean result = true;
+        MySQL = new MySQLFunc(HOST, DB, USER, PASS,PORT);
+        con = MySQL.open();
+        if (con == null) {
+            Bukkit.getLogger().info("failed to open MYSQL");
+            return false;
+        }
+        if (debugMode) {
+            plugin.getLogger().info("query:" + query);
+        }
         try {
-            return f.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
+            st = con.createStatement();
+            st.execute(query);
+        } catch (SQLException var3) {
+            plugin.getLogger().info("[" + conName + "] Error executing statement: " + var3.getErrorCode() + ":" + var3.getLocalizedMessage());
+            plugin.getLogger().info(query);
+            result = false;
+        }
+        //MySQL.close(con);
+        try {
+            this.con.close();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
-        return true;
+        Bukkit.getPluginManager().callEvent(new ExecuteMySQLEvent(query));
+        return result;
     }
 
     ////////////////////////////////
@@ -173,33 +208,20 @@ public class MySQLAPI {
     //////////////////////////////
     //
 
-    ResultSet rs = null;
-
     public ResultSet query(String query) {
-        FutureTask<ResultSet> f = new FutureTask<>(() -> {
-            MySQL = new MySQLFunc(HOST, DB, USER, PASS, PORT);
-            con = MySQL.open();
-            if (debugMode) {
-                plugin.getLogger().info("query:" + query);
-            }
-            try {
-                st = con.createStatement();
-                rs = st.executeQuery(query);
-            } catch (SQLException var4) {
-                plugin.getLogger().info("[" + conName + "] Error executing query: " + var4.getErrorCode());
-            }
-            MySQL.close(con);
-            return rs;
-        });
-        ExecutorService executor = Executors.newFixedThreadPool(1);
-        executor.execute(f);
-        try {
-            return f.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
+        ResultSet rs = null;
+        MySQL = new MySQLFunc(HOST, DB, USER, PASS, PORT);
+        con = MySQL.open();
+        if (debugMode) {
+            Bukkit.getLogger().info("query:" + query);
         }
-        return null;
+        try {
+            st = con.createStatement();
+            rs = st.executeQuery(query);
+        } catch (SQLException var4) {
+            Bukkit.getLogger().info("[" + conName + "] Error executing query: " + var4.getErrorCode());
+        }
+        Bukkit.getPluginManager().callEvent(new QueryExecutedEvent(query));
+        return rs;
     }
 }
