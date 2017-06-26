@@ -137,6 +137,9 @@ public class MySQLAPI {
     public String getDB(){
         return DB;
     }
+    public String getUSER(){
+        return USER;
+    }
     public int countRows(String table) {
         int count = 0;
         ResultSet set = this.query(String.format("SELECT * FROM %s", new Object[]{table}));
@@ -194,11 +197,6 @@ public class MySQLAPI {
             result = false;
         }
         //MySQL.close(con);
-        try {
-            this.con.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
         Bukkit.getPluginManager().callEvent(new ExecuteMySQLEvent(query));
         return result;
     }
