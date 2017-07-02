@@ -196,7 +196,11 @@ public class MySQLAPI {
             plugin.getLogger().info(query);
             result = false;
         }
-        //MySQL.close(con);
+        try {
+            con.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         Bukkit.getPluginManager().callEvent(new ExecuteMySQLEvent(query));
         return result;
     }
