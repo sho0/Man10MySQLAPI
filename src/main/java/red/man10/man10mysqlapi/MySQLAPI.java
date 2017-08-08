@@ -227,8 +227,14 @@ public class MySQLAPI {
     public void close() {
         this.MySQL.close(this.con);
         try {
-            st.close();
-            con.close();
+            if(st != null){
+                st.close();
+                st = null;
+            }
+            if(con != null){
+                con.close();
+                con = null;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
